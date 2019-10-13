@@ -1,0 +1,9 @@
+apiVersion: skaffold/v1beta15
+kind: Config
+build:
+  local: {}
+  artifacts:
+    - image: daisaru11/skaffold-buildkit-wrapper/example
+      context: .
+      custom:
+        buildCommand: skaffold-buildkit-wrapper build --cli buildctl --addr=kube-pod://buildkitd-0 --secret id=gitconfig,src=.gitconfig --build-arg TEST=test1 --file sample.Dockerfile
