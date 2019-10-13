@@ -3,7 +3,10 @@ kind: Config
 build:
   local: {}
   artifacts:
-    - image: daisaru11/skaffold-buildkit-wrapper/example
+    - image: daisaru11/skaffold-buildkit-wrapper-example
       context: .
       custom:
-        buildCommand: skaffold-buildkit-wrapper build --cli buildctl --addr=kube-pod://buildkitd-0 --secret id=gitconfig,src=.gitconfig --build-arg TEST=test1 --file sample.Dockerfile
+        # Use the static address:
+        # buildCommand: skaffold-buildkit-wrapper build --cli buildctl --addr kube-pod://buildkitd-0 --secret id=gitconfig,src=.gitconfig --build-arg TEST=test1 --file sample.Dockerfile
+        # Select the pod by consistent hashing:
+        buildCommand: skaffold-buildkit-wrapper build --cli buildctl --kube-pod-selector app=buildkitd --kube-pod-balancing-hash-key daisaru11/skaffold-buildkit-wrapper-example --secret id=gitconfig,src=.gitconfig --build-arg TEST=test1 --file sample.Dockerfile

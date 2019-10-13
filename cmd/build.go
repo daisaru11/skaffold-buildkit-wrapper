@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/daisaru11/skaffold-buildkit-wrapper/buildctl"
+	"github.com/daisaru11/skaffold-buildkit-wrapper/consistenthash"
 	"github.com/daisaru11/skaffold-buildkit-wrapper/docker"
+	"github.com/daisaru11/skaffold-buildkit-wrapper/kubeutil"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +28,8 @@ func init() {
 	buildCmd.Flags().StringArray("secret", []string{}, "Secret")
 
 	buildCmd.Flags().String("addr", "", "Address of buildkitd")
-	buildCmd.Flags().String("kubepod-selector", "", "Selector of kubernetes pod buildkitd running")
+	buildCmd.Flags().String("kube-pod-selector", "", "Selector of kubernetes pod buildkitd running")
+	buildCmd.Flags().String("kube-pod-balancing-hash-key", "", "Key of consistent hashing to choice pods")
 }
 
 func runBuild(cmd *cobra.Command, args []string) error {
@@ -64,6 +67,7 @@ func runBuildWithDocker(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build command: %w", err)
 	}
+	log.Printf("run: %s", c.String())
 	err = c.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run docker cli: %w", err)
@@ -138,6 +142,7 @@ func runBuildWithBuildctl(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build command: %w", err)
 	}
+	log.Printf("run: %s", c.String())
 	err = c.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run buildctl: %w", err)
@@ -169,6 +174,26 @@ func setBuildctlBuildOptionsFromFlags(options *buildctl.BuildOptions, cmd *cobra
 		return err
 	}
 	options.Addr = addr
+
+	kubePodSelector, err := cmd.Flags().GetString("kube-pod-selector")
+	if err != nil {
+		return err
+	}
+	kubePodBalancingHashKey, err := cmd.Flags().GetString("kube-pod-balancing-hash-key")
+	if err != nil {
+		return err
+	}
+	if kubePodSelector != "" && kubePodBalancingHashKey != "" {
+		pods, err := kubeutil.GetPodsBySelector(kubePodSelector)
+		if err != nil {
+			return err
+		}
+		pod, err := consistenthash.Choice(pods, kubePodBalancingHashKey)
+		if err != nil {
+			return err
+		}
+		options.Addr = fmt.Sprintf("kube-pod://%s", pod)
+	}
 
 	options.Opt = []string{}
 
